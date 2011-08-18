@@ -57,6 +57,7 @@ import org.jruby.javasupport.util.RuntimeHelpers;
 import org.jruby.runtime.ThreadContext;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.util.ByteList;
+import org.jruby.util.IOInputStream;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -103,14 +104,21 @@ public class XmlReader extends RubyObject {
         nodeQueue.add(new ReaderNode.EmptyNode(runtime));
     }
 
-    private void parseRubyString(ThreadContext context, RubyString content){
+    private void parse(ThreadContext context, IRubyObject in) {
         Ruby ruby = context.getRuntime();
         try {
             this.setState(XML_TEXTREADER_MODE_READING);
             XMLReader reader = this.createReader(ruby);
-            ByteList byteList = content.getByteList();
-            ByteArrayInputStream bais = new ByteArrayInputStream(byteList.unsafeBytes(), byteList.begin(), byteList.length());
-            reader.parse(new InputSource(bais));
+            InputSource io;
+            if (in.respondsTo("read")) {
+                io = new InputSource(new IOInputStream(in));
+            } else {
+                RubyString content = in.convertToString();
+                ByteList byteList = content.getByteList();
+                ByteArrayInputStream bais = new ByteArrayInputStream(byteList.unsafeBytes(), byteList.begin(), byteList.length());
+                io = new InputSource(bais);
+            }
+            reader.parse(io);
             this.setState(XML_TEXTREADER_MODE_CLOSED);
         } catch (SAXParseException spe) {
             this.setState(XML_TEXTREADER_MODE_ERROR);
@@ -189,9 +197,7 @@ public class XmlReader extends RubyObject {
         reader.setInstanceVariable("@source", args[0]);
         reader.setInstanceVariable("@errors", runtime.newArray());
         if (args.length > 2) reader.setInstanceVariable("@encoding", args[2]);
-
-        RubyString content = RuntimeHelpers.invoke(context, args[0], "read").convertToString();
-        reader.parseRubyString(context, content);
+        reader.parse(context, args[0]);
         return reader;
     }
 
@@ -208,7 +214,7 @@ public class XmlReader extends RubyObject {
         reader.setInstanceVariable("@errors", runtime.newArray());
         if (args.length > 2) reader.setInstanceVariable("@encoding", args[2]);
 
-        reader.parseRubyString(context, args[0].convertToString());
+        reader.parse(context, args[0]);
         return reader;
     }
 
