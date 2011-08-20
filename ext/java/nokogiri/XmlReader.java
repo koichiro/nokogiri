@@ -89,6 +89,7 @@ public class XmlReader extends RubyObject {
     private int state;
     private int depth;
     private String lang;
+    private String xmlBase;
     private int nodeType;
     private Document document;
     
@@ -229,8 +230,7 @@ public class XmlReader extends RubyObject {
     
     @JRubyMethod
     public IRubyObject base_uri(ThreadContext context) {
-        // TODO
-        return context.getRuntime().getNil();
+        return stringOrNil(context.getRuntime(), xmlBase);
     }
 
     @JRubyMethod(name="default?")
@@ -354,6 +354,11 @@ public class XmlReader extends RubyObject {
         String l = reader.getAttributeValue("http://www.w3.org/XML/1998/namespace", "lang");
         if (l != null) lang = l;
     }
+    
+    private void getXMLBase() {
+        String b = reader.getAttributeValue("http://www.w3.org/XML/1998/namespace", "base");
+        if (b != null) xmlBase = b;
+    }
 
     @JRubyMethod
     public IRubyObject read(ThreadContext context) {
@@ -367,10 +372,10 @@ public class XmlReader extends RubyObject {
 
             switch (reader.getEventType()) {
                 case XMLStreamConstants.START_DOCUMENT:
-                    depth = -1;
                     break;
                 case XMLStreamConstants.START_ELEMENT:
                     getXMLLang();
+                    getXMLBase();
                     depth++;
                     break;
                 case XMLStreamConstants.END_ELEMENT:
