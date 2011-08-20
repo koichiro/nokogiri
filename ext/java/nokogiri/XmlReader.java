@@ -41,6 +41,7 @@ import java.io.InputStream;
 import java.io.ByteArrayInputStream;
 import java.io.BufferedInputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.ArrayDeque;
 import java.util.Stack;
 
@@ -72,6 +73,8 @@ import org.xml.sax.helpers.XMLReaderFactory;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import org.jruby.RubyHash;
 
 /**
  * Class for Nokogiri:XML::Reader
@@ -88,10 +91,11 @@ public class XmlReader extends RubyObject {
     private static final int XML_TEXTREADER_MODE_EOF = 3;
     private static final int XML_TEXTREADER_MODE_CLOSED = 4;
     private static final int XML_TEXTREADER_MODE_READING = 5;
-
+    
     ArrayDeque<ReaderNode> nodeQueue;
     private XMLStreamReader reader;
     private int state;
+    private int depth;
     
     public XmlReader(Ruby runtime, RubyClass klazz) {
         super(runtime, klazz);
@@ -110,6 +114,7 @@ public class XmlReader extends RubyObject {
     public void init(Ruby runtime) {
         nodeQueue = new ArrayDeque<ReaderNode>();
         nodeQueue.add(new ReaderNode.EmptyNode(runtime));
+        depth = 0;
     }
 
     private void parse(ThreadContext context, IRubyObject in) {
@@ -152,6 +157,39 @@ public class XmlReader extends RubyObject {
         this.setState(XML_TEXTREADER_MODE_CLOSED);
     }
 
+    private static ReaderNode.ReaderNodeType dispatchNodeType(int nodeType) {
+        switch (nodeType) {
+            case XMLStreamConstants.ATTRIBUTE:
+                return ReaderNode.ReaderNodeType.ATTRIBUTE;
+            case XMLStreamConstants.CDATA:
+                return ReaderNode.ReaderNodeType.CDATA;
+            case XMLStreamConstants.CHARACTERS:
+                return ReaderNode.ReaderNodeType.TEXT;
+            case XMLStreamConstants.COMMENT:
+                return ReaderNode.ReaderNodeType.COMMENT;
+ //           case XMLStreamConstants.DTD:
+ //           case XMLStreamConstants.END_DOCUMENT:
+            case XMLStreamConstants.END_ELEMENT:
+                return ReaderNode.ReaderNodeType.END_ELEMENT;
+            case XMLStreamConstants.ENTITY_DECLARATION:
+                return ReaderNode.ReaderNodeType.XML_DECLARATION;
+            case XMLStreamConstants.ENTITY_REFERENCE:
+                return ReaderNode.ReaderNodeType.ENTITY_REFERENCE;
+//            case XMLStreamConstants.NAMESPACE:
+            case XMLStreamConstants.NOTATION_DECLARATION:
+                return ReaderNode.ReaderNodeType.NOTATION;
+            case XMLStreamConstants.PROCESSING_INSTRUCTION:
+                return ReaderNode.ReaderNodeType.PROCESSING_INSTRUCTION;
+            case XMLStreamConstants.SPACE:
+                return ReaderNode.ReaderNodeType.WHITESPACE;
+            case XMLStreamConstants.START_DOCUMENT:
+                return ReaderNode.ReaderNodeType.DOCUMENT;
+            case XMLStreamConstants.START_ELEMENT:
+                return ReaderNode.ReaderNodeType.ELEMENT;
+        }
+        return null;
+    }
+    
     private void setState(int state) { this.state = state; }
 
     @JRubyMethod
@@ -211,28 +249,28 @@ public class XmlReader extends RubyObject {
     
     @JRubyMethod
     public IRubyObject base_uri(ThreadContext context) {
-        
-        return nodeQueue.peek().getXmlBase();
+        // TODO
+        return context.getRuntime().getNil();
     }
 
     @JRubyMethod(name="default?")
     public IRubyObject default_p(ThreadContext context){
         // TODO
-        Ruby ruby = context.getRuntime();
-        return ruby.getFalse();
+        return context.getRuntime().getFalse();
     }
 
     @JRubyMethod
     public IRubyObject depth(ThreadContext context) {
-        return nodeQueue.peek().getDepth();
+        return context.getRuntime().newFixnum(depth);
     }
     
     @JRubyMethod(name = {"empty_element?", "self_closing?"})
     public IRubyObject empty_element_p(ThreadContext context) {
-        ReaderNode readerNode = nodeQueue.peek();
-        if (readerNode == null) return context.getRuntime().getNil();
-        if (!(readerNode instanceof ElementNode)) context.getRuntime().getFalse();
-        return RubyBoolean.newBoolean(context.getRuntime(), !readerNode.hasChildren);
+        //ReaderNode readerNode = nodeQueue.peek();
+        //if (readerNode == null) return context.getRuntime().getNil();
+        //if (!(readerNode instanceof ElementNode)) context.getRuntime().getFalse();
+        //return RubyBoolean.newBoolean(context.getRuntime(), !readerNode.hasChildren);
+        return context.getRuntime().getFalse();
     }
 
     @JRubyMethod(meta = true, rest = true)
@@ -270,8 +308,10 @@ public class XmlReader extends RubyObject {
 
     @JRubyMethod
     public IRubyObject node_type(ThreadContext context) {
-        IRubyObject node_type = nodeQueue.peek().getNodeType();
-        return node_type == null ? RubyFixnum.zero(context.getRuntime()) : node_type;
+        Ruby ruby = context.getRuntime();
+        ReaderNode.ReaderNodeType node_type = dispatchNodeType(reader.getEventType());
+        if (node_type == null) return RubyFixnum.zero(ruby);
+        return ruby.newFixnum(node_type.getValue());
     }
 
     @JRubyMethod
@@ -307,41 +347,60 @@ public class XmlReader extends RubyObject {
 
     @JRubyMethod
     public IRubyObject lang(ThreadContext context) {
-        return nodeQueue.peek().getLang();
+        // TODO
+        return context.getRuntime().getNil();
     }
 
     @JRubyMethod
     public IRubyObject local_name(ThreadContext context) {
-        return nodeQueue.peek().getLocalName();
+        return stringOrNil(context.getRuntime(), reader.getLocalName());
     }
 
     @JRubyMethod
     public IRubyObject name(ThreadContext context) {
-        return nodeQueue.peek().getName();
+        return stringOrNil(context.getRuntime(), reader.getName().toString());
     }
 
     @JRubyMethod
     public IRubyObject namespace_uri(ThreadContext context) {
-        return nodeQueue.peek().getUri();
+        return stringOrNil(context.getRuntime(), reader.getNamespaceURI());
     }
 
     @JRubyMethod
     public IRubyObject namespaces(ThreadContext context) {
-        return nodeQueue.peek().getNamespaces(context);
+        Ruby ruby = context.getRuntime();
+        RubyHash hash = RubyHash.newHash(ruby);
+        for (int i=0; i < reader.getNamespaceCount(); i++) {
+            IRubyObject k = stringOrBlank(ruby, reader.getNamespacePrefix(i));
+            IRubyObject v = stringOrBlank(ruby, reader.getNamespaceURI(i));
+            if (context.getRuntime().is1_9()) hash.op_aset19(context, k, v);
+            else hash.op_aset(context, k, v);
+        }
+        return hash;
     }
 
     @JRubyMethod
     public IRubyObject prefix(ThreadContext context) {
-        return nodeQueue.peek().getPrefix();
+        return stringOrNil(context.getRuntime(), reader.getPrefix());
     }
 
     @JRubyMethod
     public IRubyObject read(ThreadContext context) {
         Ruby ruby = context.getRuntime();
         try {
-            reader.nextTag();
             if (reader.hasNext() == false) {
                 return context.getRuntime().getNil();
+            }
+
+            reader.next();
+
+            switch (reader.getEventType()) {
+                case XMLStreamConstants.START_ELEMENT:
+                    depth++;
+                    break;
+                case XMLStreamConstants.END_ELEMENT:
+                    depth--;
+                    break;
             }
             return this;
         } catch (XMLStreamException e) {
@@ -361,17 +420,18 @@ public class XmlReader extends RubyObject {
 
     @JRubyMethod
     public IRubyObject value(ThreadContext context) {
-        return nodeQueue.peek().getValue();
+        return context.getRuntime().newString(new String(reader.getTextCharacters()));
     }
 
     @JRubyMethod(name = "value?")
     public IRubyObject value_p(ThreadContext context) {
-        return nodeQueue.peek().hasValue();
+        // maybe
+        return context.getRuntime().newBoolean(reader.hasText());
     }
 
     @JRubyMethod
     public IRubyObject xml_version(ThreadContext context) {
-        return nodeQueue.peek().getXmlVersion();
+        return context.getRuntime().newString(reader.getVersion());
     }
 
     protected XMLStreamReader createReader2(final Ruby ruby, InputStream stream) {
