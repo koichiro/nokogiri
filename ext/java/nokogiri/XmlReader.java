@@ -66,6 +66,8 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import org.jruby.RubyHash;
+import org.w3c.dom.Attr;
+import org.w3c.dom.Document;
 
 /**
  * Class for Nokogiri:XML::Reader
@@ -88,6 +90,7 @@ public class XmlReader extends RubyObject {
     private int depth;
     private String lang;
     private int nodeType;
+    private Document document;
     
     public XmlReader(Ruby runtime, RubyClass klazz) {
         super(runtime, klazz);
@@ -195,12 +198,22 @@ public class XmlReader extends RubyObject {
     @JRubyMethod
     public IRubyObject attribute_nodes(ThreadContext context) {
         Ruby ruby = context.getRuntime();
+        if (document == null) {
+            document = ((XmlDocument) NokogiriService.XML_DOCUMENT_ALLOCATOR.allocate(ruby, getNokogiriClass(ruby, "Nokogiri::XML::Document"))).getDocument();
+        }
         RubyArray array = RubyArray.newArray(ruby);
+        if (reader.getEventType() != XMLStreamConstants.START_ELEMENT && reader.getEventType() != XMLStreamConstants.ATTRIBUTE)
+            return array;
         int size = reader.getAttributeCount();
         if (size == 0) return array;
-        for (int i = 0; i < size; i++) {
-            // TBD
+        for (int i=0; i< size; i++) {
+            Attr attr = document.createAttributeNS(reader.getAttributeNamespace(i), reader.getAttributeLocalName(i));
+            attr.setValue(reader.getAttributeValue(i));
+            XmlAttr xmlAttr = (XmlAttr) NokogiriService.XML_ATTR_ALLOCATOR.allocate(ruby, getNokogiriClass(ruby, "Nokogiri::XML::Attr"));
+            xmlAttr.setNode(ruby.getCurrentContext(), attr);
+            array.append(xmlAttr);
         }
+
         return array;
     }
 
@@ -306,8 +319,8 @@ public class XmlReader extends RubyObject {
         if (reader.isCharacters()) {
             return ruby.newString("#text");
         } else {
-            QName qname = reader.getName();
-            return stringOrNil(ruby, qname.getPrefix() + ":" + qname.getLocalPart());
+            QName qn = reader.getName();
+            return stringOrNil(ruby, qn.getPrefix() + ":" + qn.getLocalPart());
         }
     }
 
