@@ -356,6 +356,7 @@ public class XmlReader extends RubyObject {
     }
     
     private void getXMLBase() {
+        // TODO: relative uri
         String b = reader.getAttributeValue("http://www.w3.org/XML/1998/namespace", "base");
         if (b != null) xmlBase = b;
     }
