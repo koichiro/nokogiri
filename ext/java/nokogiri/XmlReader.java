@@ -195,7 +195,11 @@ public class XmlReader extends RubyObject {
 
     @JRubyMethod
     public IRubyObject attribute_count(ThreadContext context) {
-        return context.getRuntime().newFixnum(reader.getAttributeCount());
+        int type = reader.getEventType();
+        Ruby ruby = context.getRuntime();
+        if (type != XMLStreamConstants.START_ELEMENT && type != XMLStreamConstants.ATTRIBUTE)
+            return ruby.newFixnum(0);
+        return ruby.newFixnum(reader.getAttributeCount());
     }
 
     @JRubyMethod
