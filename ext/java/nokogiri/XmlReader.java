@@ -87,6 +87,7 @@ public class XmlReader extends RubyObject {
     
     private XMLStreamReader reader;
     private int state;
+    private int curDepth;
     private int depth;
     private String lang;
     private String xmlBase;
@@ -108,7 +109,8 @@ public class XmlReader extends RubyObject {
     }
     
     public void init(Ruby runtime) {
-        depth = -1;
+        depth = 0;
+        curDepth = 0;
         lang = "";
         nodeType = 0;
     }
@@ -369,23 +371,27 @@ public class XmlReader extends RubyObject {
                 return ruby.getNil();
             }
 
-            reader.next();
+            int t = reader.next();
 
-            switch (reader.getEventType()) {
+            switch (t) {
                 case XMLStreamConstants.START_DOCUMENT:
                     break;
                 case XMLStreamConstants.START_ELEMENT:
                     getXMLLang();
                     getXMLBase();
-                    depth++;
+                    curDepth = 1;
                     break;
                 case XMLStreamConstants.END_ELEMENT:
                     depth--;
+                    curDepth = 0;
+                    break;
+                case XMLStreamConstants.CHARACTERS:
+                    depth = depth + curDepth;
                     break;
             }
 
             // skip unsupported node
-            ReaderNode.ReaderNodeType type = dispatchNodeType(reader.getEventType());
+            ReaderNode.ReaderNodeType type = dispatchNodeType(t);
             while (type == null) {
                 if (reader.hasNext() == false)
                     return ruby.getNil();
