@@ -88,8 +88,6 @@ public class XmlReader extends RubyObject {
     
     private NokogiriXmlStreamReader reader;
     private int state;
-    private String lang;
-    private String xmlBase;
     private int nodeType;
     private Document document;
     
@@ -108,7 +106,6 @@ public class XmlReader extends RubyObject {
     }
     
     public void init(Ruby runtime) {
-        lang = "";
         nodeType = 0;
     }
 
@@ -233,7 +230,7 @@ public class XmlReader extends RubyObject {
     
     @JRubyMethod
     public IRubyObject base_uri(ThreadContext context) {
-        return stringOrNil(context.getRuntime(), xmlBase);
+        return stringOrNil(context.getRuntime(), reader.getXMLBase());
     }
 
     @JRubyMethod(name="default?")
@@ -308,7 +305,7 @@ public class XmlReader extends RubyObject {
 
     @JRubyMethod
     public IRubyObject lang(ThreadContext context) {
-        return context.getRuntime().newString(lang);
+        return stringOrBlank(context.getRuntime(), reader.getLang());
     }
 
     @JRubyMethod
@@ -352,17 +349,6 @@ public class XmlReader extends RubyObject {
     public IRubyObject prefix(ThreadContext context) {
         return stringOrNil(context.getRuntime(), reader.getPrefix());
     }
-    
-    private void getXMLLang() {
-        String l = reader.getAttributeValue("http://www.w3.org/XML/1998/namespace", "lang");
-        if (l != null) lang = l;
-    }
-    
-    private void getXMLBase() {
-        // TODO: relative uri
-        String b = reader.getAttributeValue("http://www.w3.org/XML/1998/namespace", "base");
-        if (b != null) xmlBase = b;
-    }
 
     @JRubyMethod
     public IRubyObject read(ThreadContext context) {
@@ -373,15 +359,6 @@ public class XmlReader extends RubyObject {
             }
 
             int t = reader.next();
-
-            switch (t) {
-                case XMLStreamConstants.START_DOCUMENT:
-                    break;
-                case XMLStreamConstants.START_ELEMENT:
-                    getXMLLang();
-                    getXMLBase();
-                    break;
-            }
 
             // skip unsupported node
             ReaderNode.ReaderNodeType type = dispatchNodeType(t);

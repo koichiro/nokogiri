@@ -39,6 +39,8 @@ import javax.xml.stream.util.StreamReaderDelegate;
 public class NokogiriXmlStreamReader extends StreamReaderDelegate {
     
     private int depth;
+    private String lang;
+    private String xmlBase;
 
     public NokogiriXmlStreamReader(XMLStreamReader reader) {
         super(reader);
@@ -47,6 +49,25 @@ public class NokogiriXmlStreamReader extends StreamReaderDelegate {
     
     public int getDepth() {
         return depth;
+    }
+    
+    public String getXMLBase() {
+        return xmlBase;
+    }
+    
+    public String getLang() {
+        return lang;
+    }
+
+    private void resolveXMLLang() {
+        String l = getParent().getAttributeValue("http://www.w3.org/XML/1998/namespace", "lang");
+        if (l != null) lang = l;
+    }
+
+    private void resolveXMLBase() {
+        // TODO: relative uri
+        String b = getParent().getAttributeValue("http://www.w3.org/XML/1998/namespace", "base");
+        if (b != null) xmlBase = b;
     }
 
     @Override
@@ -60,6 +81,10 @@ public class NokogiriXmlStreamReader extends StreamReaderDelegate {
         int result = getParent().next();
 
         switch (result) {
+            case XMLStreamConstants.START_ELEMENT:
+                resolveXMLLang();
+                resolveXMLBase();
+                break;
             case XMLStreamConstants.END_ELEMENT:
                 depth--;
                 break;
