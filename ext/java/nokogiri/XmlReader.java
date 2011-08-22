@@ -43,9 +43,9 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.util.Stack;
 
-import javax.xml.namespace.QName;
 import nokogiri.internals.ReaderNode;
 import nokogiri.internals.ReaderNode.ElementNode;
+import nokogiri.internals.NokogiriXmlStreamReader;
 
 import org.jruby.Ruby;
 import org.jruby.RubyArray;
@@ -61,6 +61,7 @@ import org.jruby.runtime.ThreadContext;
 import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.util.ByteList;
 import org.jruby.util.IOInputStream;
+import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLInputFactory;
@@ -85,10 +86,8 @@ public class XmlReader extends RubyObject {
     private static final int XML_TEXTREADER_MODE_CLOSED = 4;
     private static final int XML_TEXTREADER_MODE_READING = 5;
     
-    private XMLStreamReader reader;
+    private NokogiriXmlStreamReader reader;
     private int state;
-    private int curDepth;
-    private int depth;
     private String lang;
     private String xmlBase;
     private int nodeType;
@@ -109,8 +108,6 @@ public class XmlReader extends RubyObject {
     }
     
     public void init(Ruby runtime) {
-        depth = 0;
-        curDepth = 0;
         lang = "";
         nodeType = 0;
     }
@@ -247,7 +244,7 @@ public class XmlReader extends RubyObject {
 
     @JRubyMethod
     public IRubyObject depth(ThreadContext context) {
-        return context.getRuntime().newFixnum(depth);
+        return context.getRuntime().newFixnum(reader.getDepth());
     }
     
     @JRubyMethod(name = {"empty_element?", "self_closing?"})
@@ -383,14 +380,6 @@ public class XmlReader extends RubyObject {
                 case XMLStreamConstants.START_ELEMENT:
                     getXMLLang();
                     getXMLBase();
-                    curDepth = 1;
-                    break;
-                case XMLStreamConstants.END_ELEMENT:
-                    depth--;
-                    curDepth = 0;
-                    break;
-                case XMLStreamConstants.CHARACTERS:
-                    depth = depth + curDepth;
                     break;
             }
 
@@ -439,11 +428,11 @@ public class XmlReader extends RubyObject {
         return context.getRuntime().newString(reader.getVersion());
     }
 
-    protected XMLStreamReader createReader(final Ruby ruby, InputStream stream) {
+    protected NokogiriXmlStreamReader createReader(final Ruby ruby, InputStream stream) {
         XMLInputFactory factory = XMLInputFactory.newInstance();
         BufferedInputStream bstream = new BufferedInputStream(stream);
         try {
-            return factory.createXMLStreamReader(bstream);
+            return new NokogiriXmlStreamReader(factory.createXMLStreamReader(bstream));
         } catch (javax.xml.stream.XMLStreamException e) {
             throw RaiseException.createNativeRaiseException(ruby, e);
         }
