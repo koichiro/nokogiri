@@ -246,10 +246,7 @@ public class XmlReader extends RubyObject {
     
     @JRubyMethod(name = {"empty_element?", "self_closing?"})
     public IRubyObject empty_element_p(ThreadContext context) {
-        //ReaderNode readerNode = nodeQueue.peek();
-        //if (readerNode == null) return context.getRuntime().getNil();
-        //if (!(readerNode instanceof ElementNode)) context.getRuntime().getFalse();
-        //return RubyBoolean.newBoolean(context.getRuntime(), !readerNode.hasChildren);
+        // TODO
         return context.getRuntime().getFalse();
     }
 

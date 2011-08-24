@@ -12,10 +12,10 @@
  * distribute, sublicense, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be
  * included in all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
  * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -41,7 +41,7 @@ import javax.xml.stream.util.StreamReaderDelegate;
  * @author Koichiro Ohba <koichiro@meadowy.org>
  */
 public class NokogiriXmlStreamReader extends StreamReaderDelegate {
-    
+
     private int depth;
     private String lang;
     private Deque<XmlBase> xmlBase;
@@ -67,16 +67,16 @@ public class NokogiriXmlStreamReader extends StreamReaderDelegate {
         depth = 0;
         xmlBase = new ArrayDeque<XmlBase>();
     }
-    
+
     public int getDepth() {
         return depth;
     }
-    
+
     public String getXMLBase() {
         if (xmlBase.isEmpty()) return null;
         return xmlBase.peek().uri();
     }
-    
+
     public String getLang() {
         return lang;
     }
