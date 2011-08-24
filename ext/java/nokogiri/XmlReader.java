@@ -40,18 +40,13 @@ import static nokogiri.internals.NokogiriHelpers.stringOrNil;
 import java.io.InputStream;
 import java.io.ByteArrayInputStream;
 import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.util.Stack;
 
 import nokogiri.internals.ReaderNode;
-import nokogiri.internals.ReaderNode.ElementNode;
 import nokogiri.internals.NokogiriXmlStreamReader;
 
 import org.jruby.Ruby;
 import org.jruby.RubyArray;
-import org.jruby.RubyBoolean;
 import org.jruby.RubyClass;
-import org.jruby.RubyFixnum;
 import org.jruby.RubyObject;
 import org.jruby.RubyString;
 import org.jruby.anno.JRubyClass;
@@ -62,7 +57,6 @@ import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.util.ByteList;
 import org.jruby.util.IOInputStream;
 import javax.xml.namespace.QName;
-import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
