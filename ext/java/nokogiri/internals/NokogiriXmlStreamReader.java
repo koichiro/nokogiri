@@ -27,6 +27,10 @@
 
 package nokogiri.internals;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.Iterator;
+import javax.xml.namespace.QName;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -40,11 +44,28 @@ public class NokogiriXmlStreamReader extends StreamReaderDelegate {
     
     private int depth;
     private String lang;
-    private String xmlBase;
+    private Deque<XmlBase> xmlBase;
+
+    static class XmlBase {
+        private String uri;
+        private QName qname;
+        XmlBase(QName q, String u) {
+            qname = q;
+            uri = u;
+        }
+        String uri() { return uri; }
+        QName qname() { return qname; }
+
+        @Override
+        public String toString() {
+            return qname.toString() + " " + uri;
+        }
+    }
 
     public NokogiriXmlStreamReader(XMLStreamReader reader) {
         super(reader);
         depth = 0;
+        xmlBase = new ArrayDeque<XmlBase>();
     }
     
     public int getDepth() {
@@ -52,7 +73,8 @@ public class NokogiriXmlStreamReader extends StreamReaderDelegate {
     }
     
     public String getXMLBase() {
-        return xmlBase;
+        if (xmlBase.isEmpty()) return null;
+        return xmlBase.peek().uri();
     }
     
     public String getLang() {
@@ -65,9 +87,30 @@ public class NokogiriXmlStreamReader extends StreamReaderDelegate {
     }
 
     private void resolveXMLBase() {
-        // TODO: relative uri
-        String b = getParent().getAttributeValue("http://www.w3.org/XML/1998/namespace", "base");
-        if (b != null) xmlBase = b;
+        String v = getParent().getAttributeValue("http://www.w3.org/XML/1998/namespace", "base");
+        if (v == null) return;
+        if (v.startsWith("http://")) {
+            xmlBase.push(new XmlBase(getName(), v));
+        } else if (xmlBase.peek() != null) {
+            String base = xmlBase.peek().uri();
+            if (base.endsWith("/")) {
+                xmlBase.push(new XmlBase(getName(), base.concat(v)));
+            } else if (v.startsWith("/")) {
+                xmlBase.push(new XmlBase(getName(), base.concat(v)));
+            } else {
+                xmlBase.push(new XmlBase(getName(), base.concat("/").concat(v)));
+            }
+        }
+    }
+
+    private void removeXMLBase() {
+        Iterator<XmlBase> i = xmlBase.iterator();
+        while (i.hasNext()) {
+            XmlBase base = i.next();
+            if (getName().equals(base.qname())) {
+                i.remove();
+            }
+        }
     }
 
     @Override
@@ -75,6 +118,9 @@ public class NokogiriXmlStreamReader extends StreamReaderDelegate {
         switch (getParent().getEventType()) {
             case XMLStreamConstants.START_ELEMENT:
                 depth++;
+                break;
+            case XMLStreamConstants.END_ELEMENT:
+                removeXMLBase();
                 break;
         }
 
